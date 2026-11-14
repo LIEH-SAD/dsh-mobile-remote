@@ -2,6 +2,7 @@
  * GFM subset markdown parser.
  */
 import { el } from '../utils/dom.js'
+import { copyText } from '../utils/clipboard.js'
 
 const HTML_ESCAPE_MAP = {
   '&': '&amp;',
@@ -12,8 +13,8 @@ const HTML_ESCAPE_MAP = {
 }
 
 export function escapeHtml(text) {
-    return text.replace(/[&<>"']/g, (char) => HTML_ESCAPE_MAP[char] ?? char)
-  }
+  return text.replace(/[&<>"']/g, (char) => HTML_ESCAPE_MAP[char] ?? char)
+}
 
 export function safeUrl(raw) {
     const trimmed = raw.trim()
@@ -151,7 +152,11 @@ export function renderMarkdown(source) {
         }
         i += 1
         const langAttr = lang === '' ? '' : ' class="language-' + escapeHtml(lang) + '"'
-        out.push('<pre' + langAttr + '><code>' + escapeHtml(code.join('\n')) + '</code></pre>')
+        const langLabel = lang === '' ? '代码' : escapeHtml(lang)
+        out.push('<div class="chat-code">'
+          + '<div class="chat-code-head"><span class="chat-code-lang">' + langLabel + '</span>'
+          + '<button type="button" class="chat-code-copy" data-code-copy="1">复制</button></div>'
+          + '<pre' + langAttr + '><code>' + escapeHtml(code.join('\n')) + '</code></pre></div>')
         continue
       }
 
@@ -245,3 +250,21 @@ export function renderMarkdown(source) {
   }
 
 export { messageHtml, isHiddenSystemMessage } from './message.js'
+
+/**
+ * One delegated listener for every code-block copy button. The handler reads
+ * the sibling <pre> text so the markup carries no encoded payload.
+ */
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', async (event) => {
+    const target = event.target
+    const btn = target && typeof target.closest === 'function' ? target.closest('[data-code-copy]') : null
+    if (!btn) return
+    const box = btn.closest('.chat-code')
+    const pre = box ? box.querySelector('pre') : null
+    const ok = await copyText(pre ? pre.textContent : '')
+    const previous = btn.textContent
+    btn.textContent = ok ? '已复制' : '复制失败'
+    setTimeout(() => { btn.textContent = previous }, 1500)
+  }, true)
+}

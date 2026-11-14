@@ -7,6 +7,7 @@ import { openChat } from '../ui/views/chat-view.js'
 import { enterDir } from '../ui/views/dir-view.js'
 import { showSessionsFromChat, showRecentSessionsFromChat, openRecentSessions, ownedSessionIds } from '../ui/views/session-view.js'
 import { render } from '../ui/views/render.js'
+import { openHome } from '../ui/views/home.js'
 
 export function decodeRouteSeg(part) {
     try { return decodeURIComponent(part) } catch { return part }
@@ -19,6 +20,8 @@ export function parseRoute(hash) {
     const segs = path.split('/').map(decodeRouteSeg).filter(Boolean)
     if (segs.length === 1 && segs[0] === 'dir') return { view: 'dir' }
     if (segs.length === 1 && segs[0] === 'pair') return { view: 'pair' }
+    if (segs.length === 1 && segs[0] === 'home') return { view: 'home' }
+    if (segs.length === 1 && segs[0] === 'recent') return { view: 'home' }
     if (segs[0] === 'recent' || segs[0] === 'sessions') return { view: 'sessions' }
     if (segs[0] === 'workspaces') return { view: 'workspaces' }
     if (segs[0] === 's' && segs[1]) return { view: 'chat', sessionId: segs[1] }
@@ -33,6 +36,7 @@ export function parseRoute(hash) {
 
 export function formatRoute(route) {
     if (!route || route.view === 'workspaces') return '#/'
+    if (route.view === 'home') return '#/home'
     if (route.view === 'dir') return '#/dir'
     if (route.view === 'sessions' && !route.workspaceId) return '#/recent'
     if (route.view === 'chat' && route.workspaceId && route.sessionId) {
@@ -124,6 +128,15 @@ export async function applyRoute(route, opts = {}) {
     if (route.view === 'pair') {
       state.view = 'pair'
       render()
+      return
+    }
+
+    if (route.view === 'home') {
+      if (state.view === 'home' && opts.sameView) {
+        persistRoute({ view: 'home' })
+        return
+      }
+      await openHome({ locationMode })
       return
     }
 
@@ -241,7 +254,7 @@ export async function restoreRoute() {
     const fallbackView = state.listMode === 'flat' ? 'sessions' : 'workspaces'
     const route = preferRecent
       ? { view: 'sessions' }
-      : (parsed.empty ? (readPersistedRoute() || { view: fallbackView }) : parsed)
+      : (parsed.empty ? (readPersistedRoute() || { view: 'home' }) : parsed)
     await applyRoute(route, { replace: true })
     // Refresh replaces this history entry; parents on the stack may not be
     // ours. Zero depth so the in-app back button cannot history.back() off /mp/.

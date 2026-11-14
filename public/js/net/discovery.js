@@ -14,12 +14,8 @@ const FALLBACK_PREFIXES = [
   '192.168.1',
   '192.168.0',
   '192.168.2',
-  '192.168.3',
-  '192.168.4',
   '192.168.43',
   '10.0.0',
-  '10.0.1',
-  '172.16.0',
 ]
 
 /** Probe one origin. Resolves to a host record or null. */
@@ -122,14 +118,16 @@ export function guessLocalIp(timeoutMs = 900) {
 
 async function pool(items, worker, concurrency, shouldStop) {
   let index = 0
-  const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
-    while (index < items.length) {
-      if (shouldStop()) return
-      const item = items[index++]
-      await worker(item)
-    }
-  })
-  await Promise.all(runners)
+  // Chunked instead of one huge fan-out: hundreds of simultaneous connects to
+  // unreachable LAN addresses exhaust the browser socket pool and make a
+  // deliberate request (manual connect) queue until it times out.
+  while (index < items.length) {
+    if (shouldStop()) return
+    const batch = items.slice(index, index + concurrency)
+    index += batch.length
+    await Promise.all(batch.map(worker))
+    await new Promise((resolve) => setTimeout(resolve, 35))
+  }
 }
 
 /**
@@ -140,9 +138,9 @@ export async function scanLan(options = {}) {
   const {
     onHost = () => {},
     onProgress = () => {},
-    timeoutMs = 550,
-    concurrency = 48,
-    maxHosts = 4,
+    timeoutMs = 420,
+    concurrency = 12,
+    maxHosts = 2,
     signal,
   } = options
 

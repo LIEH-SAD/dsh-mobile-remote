@@ -1,0 +1,298 @@
+/* ── DeepSeek-style home (greeting + new chat + grouped history) ───────── */
+
+.home {
+  background: var(--m-bg);
+}
+
+.home-top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 52px;
+  padding: env(safe-area-inset-top, 0px) 12px 0;
+  box-sizing: content-box;
+}
+
+.home-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.home-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+.home-brand-name {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+  color: var(--m-text);
+}
+
+.home-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.home-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+}
+
+.home-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 42px 0 8px;
+}
+
+.home-greeting {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.42;
+  font-weight: 650;
+  text-align: center;
+  letter-spacing: 0.2px;
+  color: var(--m-text);
+}
+
+.home-composer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--m-border);
+  border-radius: 20px;
+  background: var(--m-bg-raised);
+  box-shadow: var(--m-shadow);
+  box-sizing: border-box;
+  transition: border-color 120ms ease;
+}
+
+.home-composer:focus-within {
+  border-color: var(--m-accent);
+}
+
+.home-input {
+  width: 100%;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 2px 2px 0;
+  border: none;
+  background: transparent;
+  color: var(--m-text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.home-input::placeholder {
+  color: var(--m-text-tertiary);
+}
+
+.home-composer-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 34px;
+}
+
+.home-target {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--m-text-tertiary);
+}
+
+.home-send {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--m-accent);
+  color: #fff;
+  font-size: 17px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.home-send:disabled {
+  opacity: 0.45;
+}
+
+.home-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--m-text-tertiary);
+  text-align: center;
+}
+
+.home-history {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 26px;
+}
+
+.home-group {
+  margin-top: 10px;
+}
+
+.home-group-title {
+  padding: 4px 2px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--m-text-tertiary);
+}
+
+.home-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 10px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--m-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-row:active {
+  background: var(--ds-hover, rgba(38, 49, 72, 0.06));
+}
+
+.home-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.home-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--m-text-tertiary);
+}
+
+.home-row-running {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--m-accent);
+}
+
+.home-row-running::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: home-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes home-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.home-empty {
+  margin: 20px 0;
+  font-size: 13px;
+  color: var(--m-text-tertiary);
+  text-align: center;
+}
+
+.home-error {
+  margin: 8px 0 0;
+  color: var(--m-danger);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.home-skeleton {
+  height: 44px;
+  margin: 6px 0;
+  border-radius: 12px;
+  background: var(--m-bg-input);
+  animation: home-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes home-shimmer {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.home-more {
+  align-self: center;
+  margin: 14px 0 0;
+  padding: 8px 16px;
+  border: 1px solid var(--m-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--m-text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.home-more:disabled {
+  opacity: 0.55;
+}
+
+/* The two header buttons already exist for the list header; give them the
+   round hit area this screen expects. */
+.home-top .mobile-theme-toggle,
+.home-top .mobile-settings-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}

@@ -12,6 +12,26 @@ import { renderMarkdown } from './markdown.js'
 import { isImageTool, renderToolImageCard } from '../chat/tool-image.js'
 import { renderToolGroupCard } from './tool-group.js'
 import { loadAttachmentUrl, getPathImageUrl } from '../chat/attachment-loader.js'
+import { copyText } from '../utils/clipboard.js'
+import { showToast } from '../utils/toast.js'
+
+const COPY_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.8"/><path d="M10.5 3.5v-.2A1.8 1.8 0 0 0 8.7 1.5H4.3a1.8 1.8 0 0 0-1.8 1.8v4.4a1.8 1.8 0 0 0 1.8 1.8h.2"/></svg>'
+
+function copyAction(text) {
+  if (typeof text !== 'string' || text.trim() === '') return null
+  return el('button', {
+    type: 'button',
+    class: 'chat-msg-action',
+    'aria-label': '复制这条消息',
+    onclick: async () => {
+      const ok = await copyText(text)
+      showToast(ok ? '已复制' : '复制失败')
+    },
+  }, [
+    el('span', { class: 'chat-msg-action-icon', 'aria-hidden': 'true', html: COPY_ICON }),
+    el('span', {}, ['复制']),
+  ])
+}
 
 export function isHiddenSystemMessage(m) {
   if (chat.showSystemMessages) return false
@@ -123,6 +143,7 @@ export function messageHtml(m) {
             onclick: () => { void retryOutbox(m) },
           }, ['发送失败，点此重试'])
         : el('span', { class: 'chat-msg-time' }, [status]),
+      copyAction(parsed.text) ? el('div', { class: 'chat-msg-actions' }, [copyAction(parsed.text)]) : null,
     ])
   }
 
@@ -176,5 +197,9 @@ export function messageHtml(m) {
   }
   if (m.failed) kids.push(el('span', { class: 'chat-msg-failtag' }, ['失败']))
   kids.push(el('span', { class: 'chat-msg-time' }, [formatTime(m.time)]))
+  if (!m.pending) {
+    const action = copyAction(m.text)
+    if (action) kids.push(el('div', { class: 'chat-msg-actions' }, [action]))
+  }
   return el('div', { class: cls.join(' ') }, kids)
 }

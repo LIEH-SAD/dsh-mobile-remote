@@ -1,0 +1,83 @@
+/* ── code block chrome (language label + copy), DeepSeek-style ─────────── */
+
+.chat-code {
+  margin: 8px 0;
+  border: 1px solid var(--m-border);
+  border-radius: 12px;
+  background: var(--m-bg-input);
+  overflow: hidden;
+}
+
+.chat-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px 4px 10px;
+  border-bottom: 1px solid var(--m-border);
+  color: var(--m-text-tertiary);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.chat-code-lang {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.chat-code-copy {
+  flex: none;
+  height: 24px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--m-text-tertiary);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chat-code-copy:active {
+  background: var(--ds-hover, rgba(38, 49, 72, 0.06));
+  color: var(--m-text-secondary);
+}
+
+.chat-code pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 0;
+  background: transparent;
+  color: var(--m-text);
+}
+
+.chat-code pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.chat-msg-assistant .chat-code pre {
+  border: none;
+}
+
+.chat-msg-user .chat-code {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.chat-msg-user .chat-code-head {
+  border-bottom-color: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.chat-msg-user .chat-code-copy {
+  color: rgba(255, 255, 255, 0.85);
+}

@@ -123,6 +123,7 @@ export const chat = {
   showSystemMessages: readStoredBoolean('dsh.mobile.showSystemMessages', false),
   currentModel: undefined,
   modelCatalog: undefined,
+  deepThink: readStoredBoolean('dsh.mobile.deepThink', false),
   modelSheet: { status: 'loading' },
   modelBusy: false,
   modelError: undefined,

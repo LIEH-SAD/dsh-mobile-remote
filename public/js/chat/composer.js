@@ -11,6 +11,7 @@ import { render } from '../ui/views/render.js'
 import { saveDraft, clearDraft, queueDraftSave } from './draft-store.js'
 import { currentModelLabel } from '../ui/sheets/model-catalog.js'
 import { openModelSheet } from '../ui/sheets/model-sheet.js'
+import { call } from '../net/rpc.js'
 
 export function autosizeInput(node) {
     if (!node || runtime.imeComposing) return
@@ -151,6 +152,57 @@ export function makeAttachButton() {
   }
 
 /** Model + reasoning effort chip (DeepSeek-style control under the input). */
+const HIGH_EFFORTS = ['high', 'max', 'xhigh']
+
+export function deepThinkActive() {
+    if (chat.currentModel && typeof chat.currentModel.reasoningEffort === 'string') {
+      return HIGH_EFFORTS.includes(chat.currentModel.reasoningEffort)
+    }
+    return chat.deepThink === true
+  }
+
+/** 深度思考 toggle (DeepSeek-style pill). On = high reasoning effort. */
+export function makeDeepThinkToggle() {
+    const on = deepThinkActive()
+    return el('button', {
+      type: 'button',
+      class: `chat-toggle${on ? ' is-on' : ''}`,
+      'aria-pressed': on ? 'true' : 'false',
+      'aria-label': '深度思考',
+      onclick: () => void toggleDeepThink(),
+    }, [
+      el('span', {
+        class: 'chat-toggle-icon',
+        'aria-hidden': 'true',
+        html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.8 1 .85 1.6l.05.6h5.4l.05-.6c.05-.6.35-1.2.85-1.6A6 6 0 0 0 12 3Z"/></svg>',
+      }),
+      el('span', { class: 'chat-toggle-label' }, ['深度思考']),
+    ])
+  }
+
+export async function toggleDeepThink() {
+    const next = !deepThinkActive()
+    chat.deepThink = next
+    try { localStorage.setItem('dsh.mobile.deepThink', next ? '1' : '0') } catch { /* ignore */ }
+    const sid = state.session?.sessionId
+    const selection = chat.currentModel || state.defaultModel
+    if (sid && selection?.provider && selection?.model) {
+      try {
+        const result = await call('session.selectModel', {
+          sessionId: sid,
+          provider: selection.provider,
+          model: selection.model,
+          reasoningEffort: next ? 'high' : 'off',
+        })
+        if (result && result.selected) chat.currentModel = result.selected
+      } catch {
+        /* host may not accept the effort: keep the visual toggle and let the
+           model sheet be the source of truth */
+      }
+    }
+    render()
+  }
+
 export function makeModelChip() {
     const selection = chat.currentModel
     const label = currentModelLabel() || (selection && selection.model) || state.defaultModel?.model || '选择模型'
@@ -173,7 +225,7 @@ export function makeModelChip() {
 
 export function buildInputbar() {
     return el('div', { class: 'chat-inputbar' }, [
-      el('div', { class: 'chat-tools' }, [makeModelChip()]),
+      el('div', { class: 'chat-tools' }, [makeDeepThinkToggle(), makeModelChip()]),
       el('div', { class: 'chat-input-main' }, [
         ensureComposer(),
       ]),
@@ -217,12 +269,21 @@ export function syncInputbar(bar) {
     const oldChip = bar.querySelector('.chat-chip-model')
     if (!oldChip) {
       if (!bar.querySelector('.chat-tools')) {
-        bar.prepend(el('div', { class: 'chat-tools' }, [chip]))
+        bar.prepend(el('div', { class: 'chat-tools' }, [makeDeepThinkToggle(), chip]))
       } else {
         bar.querySelector('.chat-tools').prepend(chip)
       }
     } else if (oldChip.textContent !== chip.textContent) {
       oldChip.replaceWith(chip)
+    }
+
+    const toggle = makeDeepThinkToggle()
+    const oldToggle = bar.querySelector('.chat-toggle')
+    if (!oldToggle) {
+      const tools = bar.querySelector('.chat-tools')
+      if (tools) tools.prepend(toggle)
+    } else if (oldToggle.className !== toggle.className || oldToggle.getAttribute('aria-pressed') !== toggle.getAttribute('aria-pressed')) {
+      oldToggle.replaceWith(toggle)
     }
 
     const ctxBtn = makeContextUsageButton()

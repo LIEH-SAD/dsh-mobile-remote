@@ -119,10 +119,20 @@ async function connectManual(raw) {
     render()
     return
   }
+  // Stop the background scan first: thousands of probes compete with this
+  // deliberate one and made a live host look dead. Give the aborted sockets a
+  // moment to drain, then try twice before blaming the address.
+  abortScan()
+  conn.status = 'idle'
   conn.busy = true
   conn.error = ''
   render()
-  const host = await probeHost(origin, 2500)
+  await new Promise((resolve) => setTimeout(resolve, 350))
+  let host = await probeHost(origin, 6000)
+  if (!host) {
+    await new Promise((resolve) => setTimeout(resolve, 700))
+    host = await probeHost(origin, 6000)
+  }
   conn.busy = false
   if (!host) {
     conn.error = '这个地址上没有响应 DSH 宿主，请检查端口（默认 3088）和电脑是否在运行。'

@@ -12,6 +12,7 @@ import { renderSessions, loadSessions, startListPoll } from './session-view.js'
 import { applyChatPage } from './chat-view.js'
 import { renderDir, renderPair } from './dir-view.js'
 import { renderConnect } from './connect.js'
+import { renderHome } from './home.js'
 import { syncSheetPortal } from '../sheets.js'
 import { loadDefaultModel } from '../sheets/model-catalog.js'
 import { loadQuota } from '../../net/quota.js'
@@ -112,6 +113,8 @@ function renderView() {
       const page = renderSessions()
       rootEl.replaceChildren(page)
       applyListScroll(page.querySelector('.mobile-list'))
+    } else if (state.view === 'home') {
+      rootEl.replaceChildren(renderHome())
     } else if (state.view === 'chat') {
       if (runtime.imeComposing) {
         runtime.composerRenderQueued = true
