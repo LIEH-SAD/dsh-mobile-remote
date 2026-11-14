@@ -152,7 +152,7 @@ export function messageHtml(m) {
     kids.push(el('details', { class: 'chat-disclosure' }, [
       el('summary', { class: 'chat-disclosure-head' }, [
         el('span', { class: 'chat-disclosure-caret' }, ['›']),
-        el('span', { class: 'chat-disclosure-label' }, ['深度思考']),
+        el('span', { class: 'chat-disclosure-label' }, [m.pending ? '正在思考' : '已深度思考']),
         el('span', { class: 'chat-disclosure-summary' }, [m.reasoning.split('\n')[0].slice(0, 60)]),
       ]),
       el('div', { class: 'chat-disclosure-body' }, [m.reasoning]),

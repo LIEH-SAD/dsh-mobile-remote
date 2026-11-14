@@ -205,7 +205,10 @@ export async function toggleDeepThink() {
 
 export function makeModelChip() {
     const selection = chat.currentModel
-    const label = currentModelLabel() || (selection && selection.model) || state.defaultModel?.model || '选择模型'
+    const raw = currentModelLabel() || (selection && selection.model) || state.defaultModel?.model || '选择模型'
+    // The reference shows a compact "DeepSeek-V3.2"-style label; the provider
+    // prefix is redundant on a narrow control row.
+    const label = raw.length > 16 ? raw.replace(/^DeepSeek[-\s]?/i, '') : raw
     const effort = selection && selection.reasoningEffort ? ` · ${selection.reasoningEffort}` : ''
     return el('button', {
       type: 'button',

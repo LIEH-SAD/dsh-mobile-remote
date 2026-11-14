@@ -137,3 +137,73 @@
   justify-content: flex-start;
   margin-top: 4px;
 }
+
+/* ── 正文排版：参考 16/28，移动端降为 15/26；代码块令牌按实测 ──────────── */
+.chat-msg {
+  font-size: 15px;
+  line-height: 1.72;
+}
+
+.chat-md-body {
+  font-size: 15px;
+  line-height: 1.72;
+}
+
+.chat-md-body p {
+  margin: 10px 0;
+}
+
+.chat-md-body p:first-child {
+  margin-top: 0;
+}
+
+.chat-md-body p:last-child {
+  margin-bottom: 0;
+}
+
+@media (min-width: 768px) {
+  .chat-msg,
+  .chat-md-body {
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
+  .chat-md-body p {
+    margin: 16px 0;
+  }
+}
+
+.chat-code {
+  background: #f9fafb;
+}
+
+:root[data-theme='dark'] .chat-code {
+  background: #1b1b1c;
+}
+
+.chat-code-head {
+  background: #f9fafb;
+}
+
+:root[data-theme='dark'] .chat-code-head {
+  background: #2c2c2e;
+}
+
+/* ── 顶栏：参考 padding 12/10/4、按钮 34px、标题 14/22 500 ───────────── */
+.mobile-header {
+  min-height: 48px;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 10px 6px;
+}
+
+.mobile-title {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+}
+
+.mobile-theme-toggle,
+.mobile-settings-btn {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+}
