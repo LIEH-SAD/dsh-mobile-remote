@@ -80,7 +80,7 @@ export function renderChatHeader() {
         const ws = currentChatWorkspace()
         navBack(
           state.listMode === 'flat'
-            ? { view: 'sessions' }
+            ? { view: 'home' }
             : (ws ? { view: 'sessions', workspaceId: ws.workspaceId } : { view: 'workspaces' })
         )
       },

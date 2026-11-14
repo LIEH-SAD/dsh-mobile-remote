@@ -5,7 +5,8 @@ import { state, chat, runtime } from '../state/state.js'
 import { openImageLightbox } from './lightbox.js'
 import { parseTodos, renderTodoCard } from './todo.js'
 import { parseInboxDelivery, isImageName } from '../chat/upload.js'
-import { retryOutbox } from '../chat/outbox.js'
+import { setDraft } from '../chat/composer.js'
+import { retryOutbox, send } from '../chat/outbox.js'
 import { el, basename } from '../utils/dom.js'
 import { formatTime } from '../utils/time.js'
 import { renderMarkdown } from './markdown.js'
@@ -16,6 +17,8 @@ import { copyText } from '../utils/clipboard.js'
 import { showToast } from '../utils/toast.js'
 
 const COPY_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.8"/><path d="M10.5 3.5v-.2A1.8 1.8 0 0 0 8.7 1.5H4.3a1.8 1.8 0 0 0-1.8 1.8v4.4a1.8 1.8 0 0 0 1.8 1.8h.2"/></svg>'
+
+const REGENERATE_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.4 7.1A5.4 5.4 0 1 0 13.5 9.2"/><path d="M13.6 3.3v3.7h-3.7"/></svg>'
 
 function copyAction(text) {
   if (typeof text !== 'string' || text.trim() === '') return null
@@ -30,6 +33,69 @@ function copyAction(text) {
   }, [
     el('span', { class: 'chat-msg-action-icon', 'aria-hidden': 'true', html: COPY_ICON }),
     el('span', {}, ['复制']),
+  ])
+}
+
+/**
+ * Text of the nearest real user prompt above `m`. Used by "重新生成": the
+ * prompt is re-sent as a brand-new turn instead of mutating history.
+ */
+function precedingUserText(m) {
+  const index = chat.messages.indexOf(m)
+  const from = (index === -1 ? chat.messages.length : index) - 1
+  for (let i = from; i >= 0; i -= 1) {
+    const prev = chat.messages[i]
+    if (!prev || prev.kind !== 'user' || prev.isCommand) continue
+    if (prev.sourceKind !== undefined && prev.sourceKind !== 'user') continue
+    const raw = typeof prev.text === 'string' ? prev.text : ''
+    const text = prev.local ? raw : parseInboxDelivery(raw).text
+    if (text.trim() !== '') return text
+  }
+  return ''
+}
+
+/**
+ * Assistant-only action: send the preceding prompt again. composer.js imports
+ * render.js which imports this module, so this import closes an existing cycle;
+ * `setDraft`/`send`/`state` are only touched inside the click handler, which
+ * runs long after every module finished evaluating.
+ */
+function regenerateAction(m) {
+  if (m.kind !== 'assistant' || m.pending) return null
+  // Only the last assistant message of a turn is a regenerable answer; the
+  // intermediate ones are tool steps.
+  const index = chat.messages.indexOf(m)
+  if (index !== -1) {
+    const next = chat.messages[index + 1]
+    if (next && next.kind !== 'user') return null
+  }
+  const text = precedingUserText(m)
+  if (text === '') return null
+  let busy = false
+  return el('button', {
+    type: 'button',
+    class: 'chat-msg-action chat-msg-action-regenerate',
+    'aria-label': '重新生成这条回复',
+    title: '重新生成',
+    onclick: async () => {
+      if (busy) return
+      busy = true
+      try {
+        // Re-sending must not drag the composer's pending attachments along.
+        if (state.attachments.length > 0) {
+          showToast('请先清空输入框中的附件')
+          return
+        }
+        setDraft(text)
+        await send()
+        showToast(state.error ? '重新发送失败' : '已重新发送')
+      } finally {
+        busy = false
+      }
+    },
+  }, [
+    el('span', { class: 'chat-msg-action-icon', 'aria-hidden': 'true', html: REGENERATE_ICON }),
+    el('span', {}, ['重新生成']),
   ])
 }
 
@@ -198,8 +264,12 @@ export function messageHtml(m) {
   if (m.failed) kids.push(el('span', { class: 'chat-msg-failtag' }, ['失败']))
   kids.push(el('span', { class: 'chat-msg-time' }, [formatTime(m.time)]))
   if (!m.pending) {
-    const action = copyAction(m.text)
-    if (action) kids.push(el('div', { class: 'chat-msg-actions' }, [action]))
+    const actions = []
+    const copy = copyAction(m.text)
+    if (copy) actions.push(copy)
+    const regenerate = regenerateAction(m)
+    if (regenerate) actions.push(regenerate)
+    if (actions.length > 0) kids.push(el('div', { class: 'chat-msg-actions' }, actions))
   }
   return el('div', { class: cls.join(' ') }, kids)
 }

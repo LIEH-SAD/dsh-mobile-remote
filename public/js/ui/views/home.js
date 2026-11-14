@@ -1,6 +1,6 @@
 /**
  * DeepSeek-style home: greeting, a new-chat composer, and history grouped the
- * way chat.deepseek.com groups it (今天 / 昨天 / 7 天内 / 30 天内 / 更早).
+ * way chat.deepseek.com groups it (今天 / 昨天 / 7 天内 / 30 天内 / 月份).
  */
 import { state } from '../../state/state.js'
 import { el, workspaceTitle } from '../../utils/dom.js'
@@ -11,10 +11,13 @@ import { createSessionInWorkspace } from './session-create.js'
 import { loadWorkspaces } from './ws-view.js'
 import { setDraft } from '../../chat/composer.js'
 import { send } from '../../chat/outbox.js'
-import { formatTime } from '../../utils/time.js'
 import { globalSettingsButton, todayButton } from '../theme.js'
+import { groupLabel, groupedSessions, sessionTitleOf, renderSessionGroup, renderCollapsibleGroup } from './home-rows.js'
+import { renderHero as renderHomeHero } from './home-hero.js'
+import { sidebarButton, refreshSidebar } from '../sidebar.js'
+import '../session-actions.js'
 
-const DAY = 24 * 60 * 60 * 1000
+export { groupLabel, groupedSessions }
 
 export const home = {
   loading: false,
@@ -26,6 +29,10 @@ export const home = {
   loadedOnce: false,
   draft: '',
   workspaceId: '',
+  pinnedIds: [],
+  archivedIds: [],
+  archivedCollapsed: (() => { try { return localStorage.getItem('dsh.mobile.archivedCollapsed') !== '0' } catch { return true } })(),
+  pinnedCollapsed: (() => { try { return localStorage.getItem('dsh.mobile.pinnedCollapsed') === '1' } catch { return false } })(),
 }
 
 function pad2(n) {
@@ -37,50 +44,7 @@ function todayString() {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
-function startOfToday() {
-  const d = new Date()
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-}
-
-export function groupLabel(ms) {
-  // Reference logic: diff whole calendar days, not fixed 24h windows.
-  const base = startOfToday()
-  const day = new Date(ms)
-  if (Number.isNaN(day.getTime())) return '今天'
-  day.setHours(0, 0, 0, 0)
-  const diff = Math.round((base - day.getTime()) / DAY)
-  if (diff <= 0) return '今天'
-  if (diff <= 1) return '昨天'
-  if (diff < 7) return '7 天内'
-  if (diff < 30) return '30 天内'
-  return `${day.getFullYear()}-${pad2(day.getMonth() + 1)}`
-}
-
-const FIXED_GROUPS = ['今天', '昨天', '7 天内', '30 天内']
-
-function sessionTitle(row) {
-  const title = row?.projections?.values?.title
-  if (typeof title === 'string' && title.trim() !== '') return title.trim()
-  return '新对话'
-}
-
-export function groupedSessions(rows) {
-  const groups = new Map()
-  for (const row of rows || []) {
-    const label = groupLabel(typeof row.updatedAt === 'number' ? row.updatedAt : 0)
-    if (!groups.has(label)) groups.set(label, [])
-    groups.get(label).push(row)
-  }
-  const months = [...groups.keys()]
-    .filter((label) => !FIXED_GROUPS.includes(label))
-    .sort()
-    .reverse()
-  return [...FIXED_GROUPS, ...months]
-    .filter((label) => groups.has(label))
-    .map((label) => ({ label, rows: groups.get(label) }))
-}
-
-function pickWorkspace() {
+export function pickWorkspace() {
   const list = state.workspaces || []
   if (list.length === 0) return null
   const today = todayString()
@@ -107,7 +71,12 @@ async function ensureWorkspaces() {
 }
 
 export async function loadHomeSessions(reset, opts = {}) {
-  if (home.loading) return
+  if (home.loading) {
+    // A mutation (rename/pin/archive) can land while the first page is still
+    // loading; queue one more refresh instead of silently dropping it.
+    if (reset) home.pendingReset = true
+    return
+  }
   home.loading = true
   if (reset) {
     home.cursor = undefined
@@ -122,12 +91,42 @@ export async function loadHomeSessions(reset, opts = {}) {
     home.hasMore = page?.hasMore === true
     home.loadedOnce = true
     home.error = ''
+    if (reset) {
+      try {
+        const [pins, workspaceView] = await Promise.all([
+          call('session.pins', {}),
+          call('workspace.list', {}),
+        ])
+        const rows = Array.isArray(pins?.pins) ? pins.pins : []
+        home.pinnedIds = rows.map((row) => row?.sessionId).filter((id) => typeof id === 'string')
+        home.archivedIds = Array.isArray(workspaceView?.archivedSessionIds) ? workspaceView.archivedSessionIds : []
+      } catch {
+        home.pinnedIds = []
+        home.archivedIds = []
+      }
+    }
   } catch (err) {
     home.error = String(err.message || err)
   } finally {
     home.loading = false
+    if (home.pendingReset) {
+      home.pendingReset = false
+      void loadHomeSessions(true, { silent: true })
+      return
+    }
     render()
   }
+}
+
+/** Re-fetch after rename/pin/delete from the action sheet. */
+export async function refreshHome() {
+  try {
+    refreshSidebar()
+  } catch {
+    /* sidebar optional */
+  }
+  if (state.view !== 'home') return
+  await loadHomeSessions(true, { silent: true })
 }
 
 export async function openHome(opts = {}) {
@@ -177,6 +176,7 @@ async function startNewChat(text) {
 function renderTopBar() {
   return el('header', { class: 'home-top' }, [
     el('div', { class: 'home-brand' }, [
+      sidebarButton(),
       el('img', { class: 'home-logo', src: './logo.svg', alt: '' }),
       el('span', { class: 'home-brand-name' }, ['DSH']),
     ]),
@@ -187,61 +187,67 @@ function renderTopBar() {
   ])
 }
 
-function renderHero() {
-  const target = pickWorkspace()
-  const targetLabel = target ? workspaceTitle(target) : '尚未选择工作区'
-  const input = el('textarea', {
-    class: 'home-input',
-    rows: '2',
-    placeholder: '给 DSH 发送消息…',
-    value: home.draft,
-    oninput: (ev) => {
-      home.draft = ev.target.value
-      autosize(ev.target)
-      syncSendButton()
+function onRowOpen(row) {
+  if (row?.sessionId) void navigateToSession(row.sessionId)
+}
+
+function onRowActions(row, pinned, archived) {
+  if (typeof window.__mpOpenSessionActions === 'function') {
+    window.__mpOpenSessionActions({ ...row, title: sessionTitleOf(row), pinned, archived })
+  }
+}
+
+function isArchived(row) {
+  return home.archivedIds.includes(row?.sessionId)
+}
+
+function renderArchivedSection() {
+  const rows = home.sessions.filter(isArchived)
+  if (rows.length === 0) return null
+  const collapsed = home.archivedCollapsed !== false
+  return renderCollapsibleGroup({
+    label: `已归档 (${rows.length})`,
+    rows,
+    collapsed,
+    groupClass: 'home-group-archived',
+    listClass: 'is-archived',
+    onToggle: (next) => {
+      home.archivedCollapsed = next
+      try { localStorage.setItem('dsh.mobile.archivedCollapsed', next ? '1' : '0') } catch { /* ignore */ }
+      render()
     },
-    onkeydown: (ev) => {
-      if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) {
-        ev.preventDefault()
-        void startNewChat(home.draft)
-      }
+    rowOptions: {
+      onOpen: onRowOpen,
+      onActions: (target) => onRowActions(target, false, true),
+      pinned: false,
     },
   })
-  if (home.draft) setTimeout(() => autosize(input), 0)
-
-  const sendBtn = el('button', {
-    type: 'button',
-    class: 'home-send',
-    'aria-label': '开始新对话',
-    disabled: home.busy,
-    onclick: () => void startNewChat(home.draft),
-  }, [home.busy ? '…' : '↑'])
-
-  return el('section', { class: 'home-hero' }, [
-    el('h1', { class: 'home-greeting' }, ['欢迎回来，想从哪里开始？']),
-    el('div', { class: 'home-composer' }, [
-      input,
-      el('div', { class: 'home-composer-tools' }, [
-        el('span', { class: 'home-target' }, [targetLabel]),
-        sendBtn,
-      ]),
-    ]),
-    el('p', { class: 'home-hint' }, ['发送后会新建一个对话；也可以从下面的历史继续。']),
-  ])
 }
 
-function autosize(node) {
-  if (!node) return
-  node.style.height = 'auto'
-  node.style.height = `${Math.min(node.scrollHeight, 120)}px`
-}
-
-function syncSendButton() {
-  // Only the affordance changes with the draft; re-rendering the composer would
-  // steal the caret, so touch the button directly.
-  const btn = document.querySelector('.home-send')
-  if (!btn) return
-  btn.disabled = home.busy
+function renderPinnedSection() {
+  const byId = new Map(home.sessions.map((row) => [row.sessionId, row]))
+  const rows = home.pinnedIds
+    .map((id) => byId.get(id) || { sessionId: id, title: '已置顶对话' })
+    .filter((row) => row.sessionId !== state.session?.sessionId)
+    .filter((row) => !isArchived(row))
+  if (rows.length === 0) return null
+  const collapsed = home.pinnedCollapsed === true
+  return renderCollapsibleGroup({
+    label: '置顶',
+    rows,
+    collapsed,
+    groupClass: 'home-group-pinned',
+    onToggle: (next) => {
+      home.pinnedCollapsed = next
+      try { localStorage.setItem('dsh.mobile.pinnedCollapsed', next ? '1' : '0') } catch { /* ignore */ }
+      render()
+    },
+    rowOptions: {
+      onOpen: onRowOpen,
+      onActions: (target) => onRowActions(target, true, false),
+      pinned: true,
+    },
+  })
 }
 
 function renderHistory() {
@@ -252,17 +258,19 @@ function renderHistory() {
       el('div', { class: 'home-skeleton' }),
     ])
   }
-  const groups = groupedSessions(home.sessions)
+  const groups = groupedSessions(home.sessions.filter((row) => !home.pinnedIds.includes(row.sessionId) && !isArchived(row)))
+  const rowOptions = { onOpen: onRowOpen, onActions: (row) => onRowActions(row, false, false) }
   const kids = []
-  if (groups.length === 0) {
+  const pinned = renderPinnedSection()
+  if (pinned) kids.push(pinned)
+  if (groups.length === 0 && !pinned) {
     kids.push(el('p', { class: 'home-empty' }, ['还没有对话，发一条消息开始吧。']))
   }
   for (const group of groups) {
-    kids.push(el('div', { class: 'home-group' }, [
-      el('div', { class: 'home-group-title' }, [group.label]),
-      el('div', { class: 'home-rows' }, group.rows.map(renderRow)),
-    ]))
+    kids.push(renderSessionGroup(group.label, group.rows, rowOptions))
   }
+  const archived = renderArchivedSection()
+  if (archived) kids.push(archived)
   if (home.hasMore) {
     kids.push(el('button', {
       type: 'button',
@@ -274,30 +282,18 @@ function renderHistory() {
   return el('section', { class: 'home-history' }, kids)
 }
 
-function renderRow(row) {
-  const running = row?.running === true
-  return el('button', {
-    type: 'button',
-    class: 'home-row',
-    onclick: () => {
-      if (row?.sessionId) void navigateToSession(row.sessionId)
-    },
-  }, [
-    el('span', { class: 'home-row-main' }, [
-      el('span', { class: 'home-row-title' }, [sessionTitle(row)]),
-      el('span', { class: 'home-row-meta' }, [
-        running ? el('span', { class: 'home-row-running' }, ['运行中']) : null,
-        formatTime(row?.updatedAt),
-      ].filter(Boolean)),
-    ]),
-  ])
-}
-
 export function renderHome() {
+  const target = pickWorkspace()
   const kids = [renderTopBar()]
   if (home.error) kids.push(el('p', { class: 'home-error mobile-pad', role: 'alert' }, [home.error]))
   kids.push(el('div', { class: 'home-scroll' }, [
-    renderHero(),
+    renderHomeHero({
+      draft: home.draft,
+      busy: home.busy,
+      targetLabel: target ? workspaceTitle(target) : '尚未选择工作区',
+      onInput: (value) => { home.draft = value },
+      onSend: (text) => void startNewChat(text),
+    }),
     renderHistory(),
   ]))
   return el('main', { class: 'mobile home' }, kids)

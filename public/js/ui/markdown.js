@@ -153,9 +153,12 @@ export function renderMarkdown(source) {
         i += 1
         const langAttr = lang === '' ? '' : ' class="language-' + escapeHtml(lang) + '"'
         const langLabel = lang === '' ? '代码' : escapeHtml(lang)
-        out.push('<div class="chat-code">'
+        out.push('<div class="chat-code" data-code-lang="' + escapeHtml(lang) + '">'
           + '<div class="chat-code-head"><span class="chat-code-lang">' + langLabel + '</span>'
-          + '<button type="button" class="chat-code-copy" data-code-copy="1">复制</button></div>'
+          + '<span class="chat-code-actions">'
+          + '<button type="button" class="chat-code-copy" data-code-copy="1">复制</button>'
+          + '<button type="button" class="chat-code-download" data-code-download="1">下载</button>'
+          + '</span></div>'
           + '<pre' + langAttr + '><code>' + escapeHtml(code.join('\n')) + '</code></pre></div>')
         continue
       }
@@ -252,19 +255,44 @@ export function renderMarkdown(source) {
 export { messageHtml, isHiddenSystemMessage } from './message.js'
 
 /**
- * One delegated listener for every code-block copy button. The handler reads
- * the sibling <pre> text so the markup carries no encoded payload.
+ * One delegated listener for every code-block action. Copy buttons read the
+ * sibling <pre> text, download buttons turn that same text into a Blob so the
+ * markup carries no encoded payload.
  */
+function downloadCode(box) {
+  const pre = box ? box.querySelector('pre') : null
+  const text = pre ? pre.textContent : ''
+  const rawLang = box && box.dataset ? (box.dataset.codeLang || '') : ''
+  const lang = rawLang.replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'code'
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${lang}-${Date.now()}.txt`
+  link.rel = 'noopener'
+  link.style.display = 'none'
+  document.body.append(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 if (typeof document !== 'undefined') {
   document.addEventListener('click', async (event) => {
     const target = event.target
-    const btn = target && typeof target.closest === 'function' ? target.closest('[data-code-copy]') : null
-    if (!btn) return
-    const box = btn.closest('.chat-code')
-    const pre = box ? box.querySelector('pre') : null
-    const ok = await copyText(pre ? pre.textContent : '')
-    const previous = btn.textContent
-    btn.textContent = ok ? '已复制' : '复制失败'
-    setTimeout(() => { btn.textContent = previous }, 1500)
+    if (!target || typeof target.closest !== 'function') return
+    const copyBtn = target.closest('[data-code-copy]')
+    if (copyBtn) {
+      const box = copyBtn.closest('.chat-code')
+      const pre = box ? box.querySelector('pre') : null
+      const ok = await copyText(pre ? pre.textContent : '')
+      const previous = copyBtn.textContent
+      copyBtn.textContent = ok ? '已复制' : '复制失败'
+      setTimeout(() => { copyBtn.textContent = previous }, 1500)
+      return
+    }
+    const downloadBtn = target.closest('[data-code-download]')
+    if (!downloadBtn) return
+    downloadCode(downloadBtn.closest('.chat-code'))
   }, true)
 }
