@@ -2,6 +2,7 @@
  * RPC caller and fetch utilities.
  */
 import { runtime } from '../state/state.js'
+import { apiUrl, authHeaders, credentialMode } from '../utils/endpoint.js'
 
 export function rpcId() {
     return `${Date.now().toString(36)}-${++runtime.rpcN}`
@@ -24,10 +25,10 @@ export async function call(method, payload) {
     const timer = setTimeout(() => controller.abort(), RPC_TIMEOUT_OVERRIDES[method] || RPC_TIMEOUT_MS)
     let res
     try {
-      res = await fetch(`/mp/api/${method}`, {
+      res = await fetch(apiUrl(method), {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        credentials: 'same-origin',
+        headers: authHeaders({ 'content-type': 'application/json' }),
+        credentials: credentialMode(),
         body: JSON.stringify({ type: 'client-request', rpcId: id, method, payload }),
         signal: controller.signal,
       })
@@ -37,6 +38,12 @@ export async function call(method, payload) {
         : (err instanceof Error ? err : new Error(String(err)))
     } finally {
       clearTimeout(timer)
+    }
+    if (res.status === 401) {
+      // Token/cookie rejected: the device was revoked or the host forgot it.
+      const err = new Error('此设备未配对或配对已失效：请在电脑端重新生成配对链接。')
+      err.code = 'unpaired'
+      throw err
     }
     if (res.status === 403) {
       // 403 有两种（读 body 区分，避免一律显示 "unpaired"）：

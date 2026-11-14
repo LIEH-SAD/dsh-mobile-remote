@@ -15,6 +15,7 @@ import { dropOutboxEcho, reconcileOutbox } from '../chat/outbox.js'
 import { refreshLiveSnapshot } from '../ui/views/session-view.js'
 import { triggerTaskDoneNotification, notifyIfCompleted } from '../utils/notify.js'
 import { renderLive } from '../ui/views/stream-render.js'
+import { tokenUrl } from '../utils/endpoint.js'
 
 export function parseLiveFrame(data) {
     if (typeof data !== 'string' || data === '') return null
@@ -42,7 +43,7 @@ export function parseLiveFrame(data) {
 
 export class MuxClient {
     constructor(url, options = {}) {
-      this.url = url ?? '/mp/api/events.mux'
+      this.url = url ?? tokenUrl('/mp/api/events.mux')
       this.sourceFactory = options.sourceFactory ?? ((u) => new EventSource(u))
       this.pollLatest = options.pollLatest
       this.pollIntervalMs = options.pollIntervalMs ?? 3000
@@ -323,7 +324,7 @@ export class MuxClient {
 
 export class HostClient {
     constructor(url, options = {}) {
-      this.url = url ?? '/mp/api/events.host'
+      this.url = url ?? tokenUrl('/mp/api/events.host')
       this.sourceFactory = options.sourceFactory ?? ((u) => new EventSource(u))
       this.listeners = new Set()
       this.source = undefined
@@ -391,14 +392,14 @@ export class HostClient {
 
 export async function ensureMux() {
     if (runtime.mux !== null) return
-    runtime.mux = new MuxClient('/mp/api/events.mux', { pollLatest: (sessionId) => call('session.history', { sessionId, maxMessages: 50 }) })
+    runtime.mux = new MuxClient(tokenUrl('/mp/api/events.mux'), { pollLatest: (sessionId) => call('session.history', { sessionId, maxMessages: 50 }) })
     runtime.mux.onFrame(handleMuxFrame)
     runtime.mux.start()
   }
 
 export async function ensureHost() {
     if (runtime.host !== null) return
-    runtime.host = new HostClient('/mp/api/events.host')
+    runtime.host = new HostClient(tokenUrl('/mp/api/events.host'))
     runtime.host.onFrame(handleMuxFrame)
     runtime.host.start()
   }

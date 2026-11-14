@@ -39,7 +39,7 @@
   window.addEventListener('error', function (event) {
     var target = event.target
     if (!target || target.tagName !== 'SCRIPT') return
-    if (target.src && target.src.indexOf('/mp/js/app.js') === -1) return
+    if (target.src && target.src.indexOf('js/app.js') === -1) return
     clearTimeout(timer)
     show('启动脚本没有加载成功，请检查网络后重新加载。')
   }, true)

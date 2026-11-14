@@ -17,6 +17,99 @@ import { autosizeInput, flushComposerRender } from './chat/composer.js'
 import { reloadPaired, applyRoute, parseRoute, navigateToSession } from './state/route.js'
 import { setupPinsSync } from './net/pins.js'
 import { installAudioUnlockOnGesture, syncPushSubscription } from './utils/notify.js'
+import { enterConnect } from './ui/views/connect.js'
+import { isStandaloneMode, loadBinding } from './state/binding.js'
+import { configureEndpoint } from './utils/endpoint.js'
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** boot() is re-runnable: after a successful standalone pairing we land here again. */
+function retryBoot() {
+  void boot()
+}
+
+async function bootStandalone() {
+  const binding = loadBinding()
+  if (!binding) {
+    enterConnect({ reason: 'welcome', onBound: retryBoot })
+    return
+  }
+  configureEndpoint(binding.origin, binding.token)
+  state.bootMessage = '正在连接主机…'
+  render()
+  let check = await checkPairStatus()
+  if (check.offline) {
+    for (let i = 0; i < 3; i++) {
+      await sleep(1200)
+      check = await checkPairStatus()
+      if (!check.offline) break
+    }
+  }
+  if (check.offline) {
+    state.bootMessage = ''
+    enterConnect({ reason: 'offline', onBound: retryBoot })
+    return
+  }
+  if (check.ok && check.paired !== true) {
+    state.bootMessage = ''
+    enterConnect({ reason: 'stale', onBound: retryBoot })
+    return
+  }
+  state.bootMessage = ''
+  await enterApp()
+}
+
+async function bootHostServed() {
+  configureEndpoint('', '')
+  let check = await checkPairStatus()
+  // 若服务刚重启中（offline），进行短暂自动重试，平滑等待主机就绪，避免误判未配对
+  if (check.offline) {
+    state.bootMessage = '正在连接主机…'
+    render()
+    for (let i = 0; i < 3; i++) {
+      await sleep(1200)
+      check = await checkPairStatus()
+      if (!check.offline) break
+    }
+  }
+
+  if (check.offline) {
+    state.bootMessage = ''
+    state.error = '无法连接到 DSH 主机，主机可能正在重启或离线。'
+    state.view = 'error'
+    render()
+    return
+  }
+
+  state.bootMessage = ''
+  if (check.paired) {
+    cleanPairUrl()
+    await enterApp()
+    return
+  }
+
+  const token = parsePairInput(window.location.href)
+  if (token) {
+    const message = await acceptPair(token)
+    if (!message) {
+      cleanPairUrl()
+      reloadPaired()
+      return
+    }
+    // A double load (reload, restored tab, WebView re-entry) can consume the
+    // one-time token in the first load; if this browser is already paired,
+    // do not show a bogus "invalid link" error.
+    const recheck = await checkPairStatus(2500)
+    if (recheck.ok && recheck.paired === true) {
+      cleanPairUrl()
+      await enterApp()
+      return
+    }
+    state.dirError = message
+  }
+  state.view = 'pair'
+  render()
+}
 
 export async function boot() {
   runtime.bootEntered = false
@@ -27,46 +120,11 @@ export async function boot() {
   state.error = ''
   render()
   try {
-    let check = await checkPairStatus()
-    // 若服务刚重启中（offline），进行短暂自动重试，平滑等待主机就绪，避免误判未配对
-    if (check.offline) {
-      state.bootMessage = '正在连接主机…'
-      render()
-      for (let i = 0; i < 3; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 1200))
-        check = await checkPairStatus()
-        if (!check.offline) break
-      }
-    }
-
-    if (check.offline) {
-      state.bootMessage = ''
-      state.error = '无法连接到 DSH 主机，主机可能正在重启或离线。'
-      state.view = 'error'
-      render()
+    if (isStandaloneMode()) {
+      await bootStandalone()
       return
     }
-
-    state.bootMessage = ''
-    if (check.paired) {
-      cleanPairUrl()
-      await enterApp()
-      return
-    }
-
-    const token = parsePairInput(window.location.href)
-    if (token) {
-      const message = await acceptPair(token)
-      if (message) {
-        state.dirError = message
-      } else {
-        cleanPairUrl()
-        reloadPaired()
-        return
-      }
-    }
-    state.view = 'pair'
-    render()
+    await bootHostServed()
   } catch (err) {
     state.bootMessage = ''
     state.error = String(err.message || err)
@@ -90,6 +148,9 @@ export function isAppleMobile() {
 }
 
 export function registerPwa() {
+  // A packaged standalone app is not served by the host: no /mp service
+  // worker scope and no push registration there.
+  if (isStandaloneMode()) return
   if (navigator.serviceWorker) {
     navigator.serviceWorker.register('/mp/sw.js', { scope: '/mp/', updateViaCache: 'none' }).catch(() => {})
     navigator.serviceWorker.addEventListener('message', (event) => {
@@ -146,7 +207,7 @@ if (typeof window !== 'undefined') {
 
   window.addEventListener('popstate', () => {
     if (runtime.ignoringPop) return
-    if (state.view === 'boot' || state.view === 'pair') return
+    if (state.view === 'boot' || state.view === 'pair' || state.view === 'connect') return
     const route = (history.state && history.state.mp) || parseRoute(window.location.hash)
     void applyRoute(route, { fromPopstate: true })
   })

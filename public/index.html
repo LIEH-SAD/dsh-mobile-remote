@@ -1,0 +1,22 @@
+<!doctype html>
+<!--
+  Entry point for a packaged standalone build (H5 shell / WebView).
+
+  Served by the plugin itself, /mp/ is rewritten to app.html, so this file is
+  only used when the bundle is packaged and opened outside the host. It simply
+  forwards to the real shell, keeping the hash route.
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+  <meta name="theme-color" content="#f9fafb" />
+  <title>DSH 手机远程</title>
+  <script>window.location.replace('./app.html' + window.location.hash)</script>
+</head>
+<body>
+  <p style="font:15px -apple-system,sans-serif;padding:24px;color:#61666b">
+    正在打开应用… 若没有自动跳转，请点 <a href="./app.html">这里</a>。
+  </p>
+</body>
+</html>

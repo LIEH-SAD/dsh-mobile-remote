@@ -5,6 +5,7 @@ import { state, runtime } from '../state/state.js'
 import { el } from '../utils/dom.js'
 import { formatBytes } from '../utils/time.js'
 import { rpcId } from '../net/rpc.js'
+import { apiUrl, authHeaders, isCrossOrigin } from '../utils/endpoint.js'
 import { closeImageLightbox, openImageLightbox } from '../ui/lightbox.js'
 import { syncComposerDraft } from './composer.js'
 import { render } from '../ui/views/render.js'
@@ -122,8 +123,9 @@ export function uploadOne(att, sessionId) {
       att.error = ''
       const xhr = new XMLHttpRequest()
       att.xhr = xhr
-      xhr.open('POST', '/mp/api/mobile.upload')
-      xhr.withCredentials = true
+      xhr.open('POST', apiUrl('mobile.upload'))
+      xhr.withCredentials = !isCrossOrigin()
+      xhr.setRequestHeader('authorization', authHeaders({}).authorization || '')
       xhr.setRequestHeader('x-mp-filename', encodeURIComponent(att.name || 'file'))
       xhr.setRequestHeader('x-mp-session-id', sessionId)
       if (att.mime) xhr.setRequestHeader('x-mp-media-type', att.mime)
@@ -136,7 +138,7 @@ export function uploadOne(att, sessionId) {
         att.xhr = null
         let body
         try { body = JSON.parse(xhr.responseText) } catch { body = null }
-        if (xhr.status === 403) {
+        if (xhr.status === 401 || xhr.status === 403) {
           att.status = 'failed'
           att.error = body?.error?.code === 'forbidden'
             ? '宿主端插件可能是旧版本：请重启 dsh web 后再试。'

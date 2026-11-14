@@ -4,12 +4,13 @@
  * gracefully falls back to POST session.attachment RPC (Blob URL) if GET is unhandled.
  */
 import { call } from '../net/rpc.js'
+import { tokenUrl, authHeaders, credentialMode } from '../utils/endpoint.js'
 
 const URL_CACHE = new Map()
 
 export function getPathImageUrl(filePath, variant = 'thumb') {
   if (!filePath) return ''
-  return `/mp/api/attachment?path=${encodeURIComponent(filePath)}${variant === 'thumb' ? '&variant=thumb' : ''}`
+  return tokenUrl(`/mp/api/attachment?path=${encodeURIComponent(filePath)}${variant === 'thumb' ? '&variant=thumb' : ''}`)
 }
 
 export function peekAttachmentUrl(attachmentId, variant = 'thumb') {
@@ -22,11 +23,11 @@ export async function loadAttachmentUrl(sessionId, attachmentId, variant = 'thum
   const key = `${attachmentId}:${variant}`
   if (URL_CACHE.has(key)) return URL_CACHE.get(key)
 
-  const getUrl = `/mp/api/attachment?sessionId=${encodeURIComponent(sessionId)}&attachmentId=${encodeURIComponent(attachmentId)}${variant === 'thumb' ? '&variant=thumb' : ''}`
+  const getUrl = tokenUrl(`/mp/api/attachment?sessionId=${encodeURIComponent(sessionId)}&attachmentId=${encodeURIComponent(attachmentId)}${variant === 'thumb' ? '&variant=thumb' : ''}`)
 
   // 1. Try dedicated GET media route first
   try {
-    const res = await fetch(getUrl, { method: 'GET', cache: 'default' })
+    const res = await fetch(getUrl, { method: 'GET', cache: 'default', headers: authHeaders({}), credentials: credentialMode() })
     if (res.ok) {
       URL_CACHE.set(key, getUrl)
       return getUrl

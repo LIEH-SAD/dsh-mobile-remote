@@ -1,7 +1,7 @@
 /**
  * Chat composer input bar, IME handling, and keydown listeners.
  */
-import { state, runtime } from '../state/state.js'
+import { state, runtime, chat } from '../state/state.js'
 import { el } from '../utils/dom.js'
 import { send, stopTurn } from './outbox.js'
 import { pickFromFiles } from './upload.js'
@@ -9,6 +9,8 @@ import { renderSlashMenu } from './slash.js'
 import { contextUsage } from './context-usage.js'
 import { render } from '../ui/views/render.js'
 import { saveDraft, clearDraft, queueDraftSave } from './draft-store.js'
+import { currentModelLabel } from '../ui/sheets/model-catalog.js'
+import { openModelSheet } from '../ui/sheets/model-sheet.js'
 
 export function autosizeInput(node) {
     if (!node || runtime.imeComposing) return
@@ -148,8 +150,30 @@ export function makeAttachButton() {
     ])
   }
 
+/** Model + reasoning effort chip (DeepSeek-style control under the input). */
+export function makeModelChip() {
+    const selection = chat.currentModel
+    const label = currentModelLabel() || (selection && selection.model) || state.defaultModel?.model || '选择模型'
+    const effort = selection && selection.reasoningEffort ? ` · ${selection.reasoningEffort}` : ''
+    return el('button', {
+      type: 'button',
+      class: 'chat-chip chat-chip-model',
+      title: '模型与思考强度',
+      'aria-haspopup': 'dialog',
+      onclick: () => {
+        state.sheetReturn = null
+        openModelSheet()
+      },
+    }, [
+      el('span', { class: 'chat-chip-label' }, ['模型']),
+      el('span', { class: 'chat-chip-value' }, [`${label}${effort}`]),
+      el('span', { class: 'chat-chip-chevron', 'aria-hidden': 'true' }, ['›']),
+    ])
+  }
+
 export function buildInputbar() {
     return el('div', { class: 'chat-inputbar' }, [
+      el('div', { class: 'chat-tools' }, [makeModelChip()]),
       el('div', { class: 'chat-input-main' }, [
         ensureComposer(),
       ]),
@@ -188,6 +212,18 @@ export function syncInputbar(bar) {
       }
     }
     syncComposerDraft(ensureComposer(), state.draft, false)
+
+    const chip = makeModelChip()
+    const oldChip = bar.querySelector('.chat-chip-model')
+    if (!oldChip) {
+      if (!bar.querySelector('.chat-tools')) {
+        bar.prepend(el('div', { class: 'chat-tools' }, [chip]))
+      } else {
+        bar.querySelector('.chat-tools').prepend(chip)
+      }
+    } else if (oldChip.textContent !== chip.textContent) {
+      oldChip.replaceWith(chip)
+    }
 
     const ctxBtn = makeContextUsageButton()
     const oldCtxBtn = bar.querySelector('.context-usage-btn') || bar.querySelector('.slash-trigger-btn')

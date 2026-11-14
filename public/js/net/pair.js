@@ -1,7 +1,11 @@
 /**
  * Pairing and authorization status.
+ *
+ * Works in both deployment modes: host-served pages POST to their own /mp
+ * origin with the device cookie, while the standalone app pairs against a
+ * discovered origin and keeps the returned device token forever.
  */
-import { call } from './rpc.js'
+import { mpUrl, authHeaders, credentialMode } from '../utils/endpoint.js'
 
 export function parsePairInput(value) {
     const trimmed = (value || '').trim()
@@ -20,11 +24,33 @@ export function parsePairInput(value) {
     return undefined
   }
 
+/** Pair against a specific origin (standalone). Resolves to {ok, deviceId, deviceToken, message}. */
+export async function acceptPairAt(origin, token) {
+  const res = await fetch(`${origin}/mp/pair/accept`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'omit',
+    body: JSON.stringify({ token }),
+  })
+  if (res.ok) {
+    let data = {}
+    try { data = await res.json() } catch { /* body optional */ }
+    return {
+      ok: true,
+      deviceId: typeof data?.deviceId === 'string' ? data.deviceId : '',
+      deviceToken: typeof data?.deviceToken === 'string' ? data.deviceToken : '',
+    }
+  }
+  if (res.status === 404) return { ok: false, message: '配对码或链接无效，或已过期。' }
+  if (res.status === 409) return { ok: false, message: '配对码或链接已被使用。' }
+  return { ok: false, message: '此设备无法完成配对。' }
+}
+
 export async function acceptPair(token) {
-    const res = await fetch('/mp/pair/accept', {
+    const res = await fetch(mpUrl('/mp/pair/accept'), {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      credentials: 'same-origin',
+      headers: authHeaders({ 'content-type': 'application/json' }),
+      credentials: credentialMode(),
       body: JSON.stringify({ token }),
     })
     if (res.ok) return undefined
@@ -53,8 +79,9 @@ export async function checkPairStatus(timeoutMs = 6000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const res = await fetch('/mp/pair/status', {
-      credentials: 'same-origin',
+    const res = await fetch(mpUrl('/mp/pair/status'), {
+      headers: authHeaders({}),
+      credentials: credentialMode(),
       signal: controller.signal,
     })
     if (res.status >= 500 || res.status === 404) {

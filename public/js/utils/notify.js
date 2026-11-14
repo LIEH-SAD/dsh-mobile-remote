@@ -7,6 +7,7 @@ import { state, runtime } from '../state/state.js'
 import { call } from '../net/rpc.js'
 import { showToast } from './toast.js'
 import { navigateToSession } from '../state/route.js'
+import { apiUrl, assetUrl, authHeaders, credentialMode, mpUrl } from '../utils/endpoint.js'
 
 const DEDUPE_MS = 8000
 const lastNotifiedAt = new Map()
@@ -89,10 +90,10 @@ export async function playChime() {
 export function showTaskDoneNotification(body, sessionId) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false
   const title = '任务完成'
-  const targetUrl = sessionId ? `/mp/#/s/${encodeURIComponent(sessionId)}` : '/mp/'
+  const targetUrl = sessionId ? `${mpUrl('/mp/')}#/s/${encodeURIComponent(sessionId)}` : mpUrl('/mp/')
   const options = {
     body: body || '一个对话任务已完成',
-    icon: '/mp/icon.png',
+    icon: assetUrl('/mp/icon.png'),
     tag: sessionId ? `task-done-${sessionId}` : 'task-done',
     renotify: true,
     data: {
@@ -183,7 +184,7 @@ export async function previewNotification() {
         const registration = await navigator.serviceWorker.ready
         await registration.showNotification('通知试听', {
           body: '这是一条测试通知：任务完成时会收到同样的通知',
-          icon: '/mp/icon.png',
+          icon: assetUrl('/mp/icon.png'),
           tag: 'task-done-test',
           renotify: true,
         })
@@ -220,7 +221,7 @@ export async function syncPushSubscription() {
         const resp = await call('push.key', {})
         publicKey = resp.publicKey
       } catch {
-        const res = await fetch('/mp/api/push/key')
+        const res = await fetch(apiUrl('push.key'), { headers: authHeaders({}), credentials: credentialMode() })
         const data = await res.json()
         publicKey = data.publicKey
       }
@@ -234,9 +235,10 @@ export async function syncPushSubscription() {
       try {
         await call('push.subscribe', { subscription: sub })
       } catch {
-        await fetch('/mp/api/push/subscribe', {
+        await fetch(apiUrl('push.subscribe'), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          credentials: credentialMode(),
           body: JSON.stringify({ subscription: sub }),
         })
       }
@@ -256,9 +258,10 @@ export async function unsubscribePush() {
       try {
         await call('push.unsubscribe', { endpoint: sub.endpoint })
       } catch {
-        await fetch('/mp/api/push/unsubscribe', {
+        await fetch(apiUrl('push.unsubscribe'), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          credentials: credentialMode(),
           body: JSON.stringify({ endpoint: sub.endpoint }),
         }).catch(() => {})
       }

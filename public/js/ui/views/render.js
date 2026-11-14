@@ -11,6 +11,7 @@ import { renderWorkspaces, loadWorkspaces, loadPresets, probeToday } from './ws-
 import { renderSessions, loadSessions, startListPoll } from './session-view.js'
 import { applyChatPage } from './chat-view.js'
 import { renderDir, renderPair } from './dir-view.js'
+import { renderConnect } from './connect.js'
 import { syncSheetPortal } from '../sheets.js'
 import { loadDefaultModel } from '../sheets/model-catalog.js'
 import { loadQuota } from '../../net/quota.js'
@@ -100,6 +101,8 @@ function renderView() {
       ]))
     } else if (state.view === 'pair') {
       rootEl.replaceChildren(renderPair())
+    } else if (state.view === 'connect') {
+      rootEl.replaceChildren(renderConnect())
     } else if (state.view === 'workspaces') {
       rootEl.replaceChildren(renderWorkspaces())
     } else if (state.view === 'dir') {

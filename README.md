@@ -24,6 +24,29 @@ dsh plugin --profile web add github:JackAIStudio/dsh-mobile-plus
 
 未配置公网地址时，二维码只指向本机 `127.0.0.1`。手机要从公网连上，必须自己配 `publicBaseUrl`。
 
+## 独立 App（H5 打包）
+
+`public/` 本身就是一份完整、零构建的静态应用，可以直接打进 H5 / WebView 壳里：
+入口用 `public/index.html`（会转到 `app.html`），资源全部相对路径，不依赖宿主注入。
+
+打包后第一次打开：
+
+1. **自动扫局域网**：并行探测常见网段（`192.168.x.0/24`、`10.0.0.x` 等）的
+   `GET /mp/api/hello`，找到宿主后列出；也可以手动输入 `192.168.2.103:3088`。
+2. **配对一次**：粘贴电脑端配对链接或输入 6 位配对码。成功后宿主返回
+   `deviceToken`，存在手机 `localStorage`，之后**永久有效**，不再需要配对。
+3. 之后每次启动直接用绑定的地址和 token 连接，跨域请求走 CORS + `Authorization: Bearer`。
+
+要求宿主插件 **0.6.0 及以上**（新增 `hello` 发现端点、CORS、Bearer 鉴权）。
+
+注意：
+
+- 手机和宿主必须在同一个局域网；Windows 首次监听时如弹出防火墙提示要允许。
+- 宿主端口是 LAN 桥的 `3088`（不是 `dsh web` 的随机端口）。
+- Android 9+ 的 WebView 默认禁止明文 HTTP：打包壳里需要
+  `android:usesCleartextTraffic="true"` 或 network-security-config 放行局域网 IP。
+- 扫描最多约 20–30 秒（约 2000 个地址，找到即停）；有历史绑定时会先试上次的主机。
+
 ## 公网地址
 
 插件**不内置任何中转**。把你自己的域名、反代或云主机地址写进宿主配置：
@@ -86,6 +109,8 @@ adb shell am start -n com.jackai.dshmobile/.MainActivity -e url https://your-hos
 配对成功的手机接近这台宿主上的 DSH：列目录、建工作区、读写会话、跑斜杠命令、上传文件、看账户额度。把它当成第二块屏幕，而不是「只能发一句聊天」。
 
 - `setup` / `pair/issue` / `pair/stop` / `pair/revoke` 仅 loopback。
+- `/mp/api/*` 需要设备凭据（同源 cookie、`Authorization: Bearer` 或 `?token=`），
+  未配对请求一律 401；`/mp/api/hello` 仅返回版本与名称，用于发现。
 - 设备 cookie 和界面上的设备 id 分开；未配对的公网请求拿不到设备列表。
 - 公网请走 HTTPS。不要把未加固的 `dsh web` 端口直接暴露到互联网。
 - 额度接口只在宿主 loopback 上读 DeepSeek / Grok / Gemini 插件，密钥不进手机。

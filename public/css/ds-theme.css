@@ -1,0 +1,287 @@
+/* =====================================================================
+   ds-theme.css — DeepSeek 风格换肤层（浅色 + 深色）
+   参考 chat.deepseek.com：neutral-bluish 色阶 + deepseek 蓝 + 克制阴影。
+   只覆盖颜色 / 圆角 / 阴影 / 间距；不动 position / overflow / height
+   等键盘适配关键属性。目标手机竖屏 WebView（旧内核）：仅 hex + rgba。
+   引入：public/css/app.css 最后一条 @import（晚于 base.css 及全部组件
+   样式，故 :root 覆盖与同优先级改写均生效）。
+   ===================================================================== */
+
+/* ── 1. 浅色令牌（覆盖 base.css :root） ─────────────────────────────── */
+:root {
+  --m-bg: #f9fafb;                 /* 页面底 neutral-bluish-50 */
+  --m-bg-raised: #ffffff;          /* 卡片 */
+  --m-bg-input: #f5f6f7;           /* 分层输入 / hover */
+  --m-border: rgba(0, 0, 0, 0.1);  /* border-l2 */
+  --m-text: #0f1115;               /* label-primary */
+  --m-text-secondary: #61666b;
+  --m-text-tertiary: #979da6;
+  --m-text-dim: #979da6;           /* chat-header 引用的别名，补齐 */
+  --m-accent: #3964fe;             /* deepseek-500 */
+  --m-accent-soft: #edf3fe;        /* deepseek-50 */
+  --m-ongoing: #3964fe;
+  --m-danger: #d64545;
+  --m-success: #1e9e6a;
+  --m-warning: #b8791a;
+  --m-radius: 12px;
+  --m-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --m-shadow-raise: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --m-backdrop: rgba(15, 17, 21, 0.4);
+  /* 扩展令牌：仅本文件使用 */
+  --ds-hover: rgba(38, 49, 72, 0.06);
+  --ds-accent-border: rgba(57, 100, 254, 0.28);
+  --ds-user-bubble: #f1f3f5;
+  --ds-user-bubble-text: #0f1115;
+  --ds-handle: rgba(0, 0, 0, 0.14);
+  --ds-fail-bg: rgba(214, 69, 69, 0.07);
+}
+
+/* ── 2. 深色令牌（JS: documentElement.dataset.theme='dark'） ────────── */
+:root[data-theme='dark'] {
+  --m-bg: #151517;
+  --m-bg-raised: #232324;
+  --m-bg-input: #2c2c2e;
+  --m-border: rgba(255, 255, 255, 0.12);
+  --m-text: #f9fafb;
+  --m-text-secondary: #adb2b8;
+  --m-text-tertiary: #81858c;
+  --m-text-dim: #81858c;
+  --m-accent: #5686fe;
+  --m-accent-soft: #283142;
+  --m-ongoing: #5686fe;
+  --m-danger: #e5534b;
+  --m-success: #3fb68b;
+  --m-warning: #e2a336;
+  --m-radius: 12px;
+  --m-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --m-shadow-raise: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --m-backdrop: rgba(0, 0, 0, 0.55);
+  --ds-hover: rgba(255, 255, 255, 0.08);
+  --ds-accent-border: rgba(86, 134, 254, 0.34);
+  --ds-user-bubble: #2c2c2e;
+  --ds-user-bubble-text: #f9fafb;
+  --ds-handle: rgba(255, 255, 255, 0.18);
+  --ds-fail-bg: rgba(229, 83, 75, 0.12);
+}
+
+/* ── 3. 字体栈与页面底色 ───────────────────────────────────────────── */
+html,
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'PingFang SC',
+    'Noto Sans SC', 'Segoe UI', sans-serif;
+  background-color: var(--m-bg);
+  color: var(--m-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 4. 消息流 ─────────────────────────────────────────────────────── */
+.chat-scroll {
+  padding: 18px 16px calc(var(--m-kb-bottom) + 12px);
+  gap: 14px;
+}
+.chat-msg {
+  font-size: 14.5px;
+  line-height: 1.62;
+}
+/* 用户消息：灰底气泡，右下角收窄，无渐变无蓝影 */
+.chat-msg-user {
+  background: var(--ds-user-bubble);
+  color: var(--ds-user-bubble-text);
+  border-radius: 18px 18px 6px 18px;
+  box-shadow: none;
+}
+.chat-msg-user .chat-msg-time {
+  color: var(--m-text-tertiary);
+}
+.chat-msg-user .chat-msg-file {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: inherit;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.chat-msg-user .chat-msg-file-name {
+  color: inherit;
+}
+.chat-msg-user .chat-msg-image-btn img {
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: none;
+  background: transparent;
+}
+.chat-msg-retry {
+  border-color: var(--m-border);
+  color: var(--m-text-secondary);
+}
+/* 助手消息：正文直排，去掉卡片感 */
+.chat-msg-assistant {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 4px 2px;
+}
+/* 失败态改用淡底 + 红色文字，替代被去掉的描边 */
+.chat-msg-failed {
+  border: none;
+  box-shadow: none;
+  background: var(--ds-fail-bg);
+}
+:root[data-theme='dark'] .chat-msg-user .chat-msg-file {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+:root[data-theme='dark'] .chat-msg-user .chat-msg-image-btn img {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ── 5. 悬浮输入卡片 ───────────────────────────────────────────────── */
+.chat-inputbar {
+  margin: 0 10px calc(var(--m-kb-bottom) + 8px);
+  padding: 8px 10px;
+  background: var(--m-bg-raised);
+  border: 1px solid var(--m-border);
+  border-radius: 20px;
+  box-shadow: var(--m-shadow);
+}
+.chat-input {
+  padding: 8px 10px;
+  border-color: transparent;
+  border-radius: 14px;
+  background: transparent;
+  font-size: 15px;
+}
+.chat-input:focus {
+  border-color: transparent;
+}
+.chat-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--m-bg-raised), 0 0 0 4px var(--m-accent);
+}
+/* 主按钮：36px 圆形上箭头（原「发送」文字方块），停止态用危险色 */
+.chat-send {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--m-accent);
+  color: #ffffff;
+  font-size: 0;
+  box-shadow: 0 2px 6px rgba(57, 100, 254, 0.28);
+}
+.chat-send::before {
+  content: '↑';
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1;
+}
+.chat-send-stop {
+  background: var(--m-danger);
+  font-size: 12px;
+  box-shadow: none;
+}
+.chat-send-stop::before {
+  content: none;
+}
+:root[data-theme='dark'] .chat-send {
+  box-shadow: none;
+}
+
+/* ── 6. 顶栏 ───────────────────────────────────────────────────────── */
+.mobile-header {
+  min-height: 52px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+  background: var(--m-bg-raised);
+  border-bottom: 1px solid var(--m-border);
+}
+.mobile-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+.mobile-back:active,
+.mobile-theme-toggle:active,
+.mobile-settings-btn:active {
+  background: var(--ds-hover);
+}
+
+/* ── 7. 列表 / 快捷卡 / 主操作 ─────────────────────────────────────── */
+.mobile-row {
+  border-color: var(--m-border);
+  border-radius: 14px;
+  box-shadow: none;
+}
+.mobile-row:active {
+  background: var(--ds-hover);
+}
+.mobile-quick-card {
+  border-radius: 12px;
+  box-shadow: none;
+}
+.mobile-quick-card:active {
+  background: var(--ds-hover);
+}
+.mobile-quick-card.is-today {
+  background: var(--m-accent-soft);
+  border-color: var(--ds-accent-border);
+}
+.mobile-new {
+  border-radius: 12px;
+  background: var(--m-accent);
+  box-shadow: none;
+}
+.mobile-new:active {
+  background: var(--m-accent);
+  opacity: 0.9;
+}
+
+/* ── 8. 底部弹层 ───────────────────────────────────────────────────── */
+.sheet {
+  background: var(--m-bg-raised);
+  border-color: var(--m-border);
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--m-shadow-raise);
+}
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--ds-handle);
+}
+.sheet-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+.sheet-option {
+  border-radius: 12px;
+}
+.sheet-option:active {
+  background: var(--ds-hover);
+}
+.sheet-option-selected {
+  border-color: var(--m-accent);
+  background: var(--m-accent-soft);
+}
+
+/* ── 9. 芯片与工具栏按钮 ───────────────────────────────────────────── */
+.chat-chip {
+  border-color: var(--m-border);
+  background: var(--m-bg-raised);
+  box-shadow: none;
+}
+.chat-chip:active {
+  border-color: var(--m-accent);
+  background: var(--m-accent-soft);
+}
+/* 输入卡片内工具按钮：无框、贴主题 hover；保留 context-usage 的
+   is-warn / is-danger 底色，故不覆盖其 background */
+.chat-input-tools .attach-btn,
+.chat-input-tools .context-usage-btn {
+  border-color: transparent;
+  border-radius: 12px;
+}
+.chat-input-tools .attach-btn {
+  background: transparent;
+}
+.chat-input-tools .attach-btn:active {
+  background: var(--ds-hover);
+}
