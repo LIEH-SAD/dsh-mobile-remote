@@ -1,0 +1,139 @@
+/*
+ * Calibrated against the saved chat.deepseek.com page.
+ * Measured values come from .design/deepseek-ui-spec.md; entries marked
+ * [反推] were reconstructed from JS class names because that chunk of the
+ * stylesheet was not saved. Imported last so it wins over ds-theme.css.
+ */
+
+/* ── 用户气泡：实测 --dsw-specific-bubble ───────────────────────────────── */
+:root {
+  --ds-user-bubble: #edf3fe;
+  --ds-user-bubble-text: #0f1115;
+}
+
+:root[data-theme='dark'] {
+  --ds-user-bubble: #2c2c2e;
+  --ds-user-bubble-text: #f9fafb;
+}
+
+/* ── 输入卡：radius 24 / textarea 16-24 / 控件行在输入框下方 ────────────── */
+.chat-inputbar {
+  border-radius: 24px;
+  padding: 12px 12px 6px;
+  gap: 6px;
+}
+
+.chat-input-main {
+  padding: 0 4px;
+}
+
+.chat-input {
+  min-height: 48px;
+  padding: 2px 0;
+  border: none;
+  border-radius: 18px;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.chat-input:focus-visible {
+  box-shadow: none;
+}
+
+.chat-input-tools {
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px 0;
+}
+
+.chat-input-tools-left {
+  flex: 1;
+  min-width: 0;
+  gap: 6px;
+}
+
+.chat-input-tools-right {
+  flex: none;
+  gap: 6px;
+}
+
+/* Toggle: 34h / radius 18 / 13px 500 (measured) */
+.chat-toggle {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.chat-toggle-icon,
+.chat-toggle-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Model selector reads as a text control, not a bordered chip. */
+.chat-input-tools-left .chat-chip {
+  flex: 1 1 auto;
+  max-width: none;
+  height: 34px;
+  padding: 0 4px 0 2px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--m-text-secondary);
+  font-size: 13px;
+}
+
+.chat-input-tools-left .chat-chip:active {
+  background: var(--ds-hover);
+}
+
+.chat-input-tools-left .chat-chip .chat-chip-label {
+  display: none;
+}
+
+.chat-input-tools-left .chat-chip .chat-chip-chevron {
+  font-size: 13px;
+}
+
+/* Send: 36px circle, disabled opacity .4 (measured) */
+.chat-send {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.chat-send:disabled {
+  opacity: 0.4;
+}
+
+.chat-send-stop {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+/* Round secondary controls align to the 36px send button. */
+.chat-input-tools .context-usage-btn,
+.chat-input-tools .attach-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+}
+
+.chat-input-tools .context-usage-btn:active,
+.chat-input-tools .attach-btn:active {
+  background: var(--ds-hover);
+}
+
+/* [反推] Message action row sits right-aligned under the assistant text. */
+.chat-msg-actions {
+  justify-content: flex-start;
+  margin-top: 4px;
+}

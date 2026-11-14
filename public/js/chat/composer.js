@@ -225,16 +225,17 @@ export function makeModelChip() {
 
 export function buildInputbar() {
     return el('div', { class: 'chat-inputbar' }, [
-      el('div', { class: 'chat-tools' }, [makeDeepThinkToggle(), makeModelChip()]),
       el('div', { class: 'chat-input-main' }, [
         ensureComposer(),
       ]),
       el('div', { class: 'chat-input-tools' }, [
         el('div', { class: 'chat-input-tools-left' }, [
-          makeContextUsageButton(),
-          makeAttachButton(),
+          makeDeepThinkToggle(),
+          makeModelChip(),
         ]),
         el('div', { class: 'chat-input-tools-right' }, [
+          makeContextUsageButton(),
+          makeAttachButton(),
           makeSendButton(),
         ]),
       ]),
@@ -265,27 +266,27 @@ export function syncInputbar(bar) {
     }
     syncComposerDraft(ensureComposer(), state.draft, false)
 
+    // Control row below the textarea (reference order: textarea, then controls).
+    const left = bar.querySelector('.chat-input-tools-left')
     const chip = makeModelChip()
     const oldChip = bar.querySelector('.chat-chip-model')
-    if (!oldChip) {
-      if (!bar.querySelector('.chat-tools')) {
-        bar.prepend(el('div', { class: 'chat-tools' }, [makeDeepThinkToggle(), chip]))
-      } else {
-        bar.querySelector('.chat-tools').prepend(chip)
-      }
-    } else if (oldChip.textContent !== chip.textContent) {
-      oldChip.replaceWith(chip)
+    if (oldChip) {
+      if (oldChip.textContent !== chip.textContent) oldChip.replaceWith(chip)
+    } else if (left) {
+      left.append(chip)
     }
 
     const toggle = makeDeepThinkToggle()
     const oldToggle = bar.querySelector('.chat-toggle')
-    if (!oldToggle) {
-      const tools = bar.querySelector('.chat-tools')
-      if (tools) tools.prepend(toggle)
-    } else if (oldToggle.className !== toggle.className || oldToggle.getAttribute('aria-pressed') !== toggle.getAttribute('aria-pressed')) {
-      oldToggle.replaceWith(toggle)
+    if (oldToggle) {
+      if (oldToggle.className !== toggle.className || oldToggle.getAttribute('aria-pressed') !== toggle.getAttribute('aria-pressed')) {
+        oldToggle.replaceWith(toggle)
+      }
+    } else if (left) {
+      left.prepend(toggle)
     }
 
+    const right = bar.querySelector('.chat-input-tools-right')
     const ctxBtn = makeContextUsageButton()
     const oldCtxBtn = bar.querySelector('.context-usage-btn') || bar.querySelector('.slash-trigger-btn')
     if (
@@ -294,11 +295,8 @@ export function syncInputbar(bar) {
       || oldCtxBtn.dataset.pct !== ctxBtn.dataset.pct
     ) {
       if (oldCtxBtn) oldCtxBtn.replaceWith(ctxBtn)
-      else {
-        const left = bar.querySelector('.chat-input-tools-left')
-        if (left) left.prepend(ctxBtn)
-        else bar.prepend(ctxBtn)
-      }
+      else if (right) right.prepend(ctxBtn)
+      else bar.prepend(ctxBtn)
     }
 
     const attach = makeAttachButton()
@@ -310,11 +308,8 @@ export function syncInputbar(bar) {
       || oldAttach.getAttribute('aria-expanded') !== attach.getAttribute('aria-expanded')
     ) {
       if (oldAttach) oldAttach.replaceWith(attach)
-      else {
-        const left = bar.querySelector('.chat-input-tools-left')
-        if (left) left.append(attach)
-        else bar.append(attach)
-      }
+      else if (right) right.insertBefore(attach, right.querySelector('.chat-send'))
+      else bar.append(attach)
     }
   }
 

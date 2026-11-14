@@ -43,15 +43,20 @@ function startOfToday() {
 }
 
 export function groupLabel(ms) {
+  // Reference logic: diff whole calendar days, not fixed 24h windows.
   const base = startOfToday()
-  if (ms >= base) return '今天'
-  if (ms >= base - DAY) return '昨天'
-  if (ms >= base - 7 * DAY) return '7 天内'
-  if (ms >= base - 30 * DAY) return '30 天内'
-  return '更早'
+  const day = new Date(ms)
+  if (Number.isNaN(day.getTime())) return '今天'
+  day.setHours(0, 0, 0, 0)
+  const diff = Math.round((base - day.getTime()) / DAY)
+  if (diff <= 0) return '今天'
+  if (diff <= 1) return '昨天'
+  if (diff < 7) return '7 天内'
+  if (diff < 30) return '30 天内'
+  return `${day.getFullYear()}-${pad2(day.getMonth() + 1)}`
 }
 
-const GROUP_ORDER = ['今天', '昨天', '7 天内', '30 天内', '更早']
+const FIXED_GROUPS = ['今天', '昨天', '7 天内', '30 天内']
 
 function sessionTitle(row) {
   const title = row?.projections?.values?.title
@@ -66,7 +71,11 @@ export function groupedSessions(rows) {
     if (!groups.has(label)) groups.set(label, [])
     groups.get(label).push(row)
   }
-  return GROUP_ORDER
+  const months = [...groups.keys()]
+    .filter((label) => !FIXED_GROUPS.includes(label))
+    .sort()
+    .reverse()
+  return [...FIXED_GROUPS, ...months]
     .filter((label) => groups.has(label))
     .map((label) => ({ label, rows: groups.get(label) }))
 }
